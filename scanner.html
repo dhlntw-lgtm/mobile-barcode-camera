@@ -8,8 +8,8 @@
 // Load ZXing from two CDNs in case one is blocked or unavailable.
 window.__zxingReady = new Promise((resolve, reject) => {
   const urls = [
-    'https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/index.min.js',
-    'https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js'
+    'https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/zxing-browser.min.js',
+    'https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js'
   ];
   let i = 0;
   function loadNext() {
