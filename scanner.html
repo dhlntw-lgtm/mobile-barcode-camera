@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Mobile Barcode Camera</title>
+<meta name="theme-color" content="#101828">
+<title>Mobile Barcode Scanner</title>
 <script>
-// Load ZXing from two CDNs in case one is blocked or unavailable.
 window.__zxingReady = new Promise((resolve, reject) => {
   const urls = [
     'https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/zxing-browser.min.js',
@@ -25,44 +25,159 @@ window.__zxingReady = new Promise((resolve, reject) => {
 });
 </script>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#101828;color:#fff;font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;padding:14px}h1{font-size:21px;margin:4px 0 8px}.note{font-size:14px;color:#d0d5dd;line-height:1.5}.frame{margin-top:14px;background:#000;border-radius:16px;overflow:hidden;min-height:250px;position:relative}video{width:100%;display:block;max-height:65vh;object-fit:cover}.line{position:absolute;top:50%;left:8%;right:8%;height:2px;background:#ffcc00;box-shadow:0 0 10px #ffcc00;pointer-events:none}.status{padding:12px;border-radius:10px;background:#344054;margin-top:12px;font-size:14px;line-height:1.5}.status.err{background:#912018}button{width:100%;padding:14px;border:0;border-radius:12px;font-size:16px;font-weight:800;margin-top:12px;background:#ffcc00;color:#111827}.code{font-size:20px;font-weight:800;overflow-wrap:anywhere;margin-top:8px}
+*{box-sizing:border-box}
+body{margin:0;background:#101828;color:#fff;font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;padding:14px;max-width:680px;margin-inline:auto}
+h1{font-size:22px;margin:4px 0 8px}
+.note{font-size:14px;color:#d0d5dd;line-height:1.5}
+.frame{margin-top:14px;background:#000;border-radius:16px;overflow:hidden;min-height:230px;position:relative}
+video{width:100%;display:block;max-height:55vh;object-fit:cover}
+.line{position:absolute;top:50%;left:8%;right:8%;height:2px;background:#ffcc00;box-shadow:0 0 10px #ffcc00;pointer-events:none}
+label{display:block;font-size:13px;color:#d0d5dd;margin:12px 0 6px}
+input[type=date]{width:100%;padding:12px;border:1px solid #475467;border-radius:10px;background:#1d2939;color:white;font-size:16px}
+.status{padding:12px;border-radius:10px;background:#344054;margin-top:12px;font-size:14px;line-height:1.5;overflow-wrap:anywhere}
+.status.ok{background:#05603a}.status.warn{background:#854a0e}.status.err{background:#912018}
+.code{font-size:20px;font-weight:800;overflow-wrap:anywhere;margin-top:10px}
+.details{font-size:14px;color:#d0d5dd;line-height:1.7;margin-top:6px;white-space:pre-line}
+button{width:100%;padding:14px;border:0;border-radius:12px;font-size:16px;font-weight:800;margin-top:12px;background:#ffcc00;color:#111827}
+button.secondary{background:#e4e7ec}
+button:disabled{opacity:.55}
+.small{font-size:12px;color:#98a2b3;margin-top:10px;line-height:1.5}
 </style>
 </head>
 <body>
-<h1>Barcode Scanner</h1>
-<div class="note">อนุญาตใช้กล้องเมื่อ Safari ถาม แล้ววางบาร์โค้ดให้อยู่ในกรอบ กล้องจะสแกนต่อเนื่องและส่งรหัสกลับไปยังหน้าระบบหลัก</div>
+<h1>Mobile Barcode Scanner</h1>
+<div class="note">เลือกวันที่งาน แล้วกดเริ่มกล้อง วางบาร์โค้ดให้อยู่ในกรอบ ระบบจะอ่านและบันทึกผลไปยัง Google Sheets อัตโนมัติ</div>
+
+<label for="jobDate">วันที่งาน (Job Date)</label>
+<input id="jobDate" type="date">
+
 <div class="frame"><video id="video" muted playsinline autoplay></video><div class="line"></div></div>
-<div id="status" class="status">กด “เริ่มกล้อง” เพื่อเริ่มสแกน</div>
+<div id="status" class="status">พร้อมเริ่มต้น — เลือกวันที่แล้วกด “เริ่มกล้อง”</div>
 <div id="lastCode" class="code"></div>
-<button id="start" type="button">📷 เริ่มกล้อง</button>
-<button id="stop" type="button" style="background:#e4e7ec">หยุดกล้อง</button>
+<div id="details" class="details"></div>
+<button id="start" type="button">📷 เริ่มกล้องและสแกน</button>
+<button id="stop" type="button" class="secondary">หยุดกล้อง</button>
+<div class="small">หากขึ้นว่าไม่พบ Tracking ให้ตรวจสอบวันที่และข้อมูลที่นำเข้าใน RouteData ก่อน หากเป็นสแกนซ้ำ ระบบจะไม่บันทึกรายการซ้ำ</div>
+
 <script>
-let reader=null,controls=null,active=false,lastText='',lastAt=0;
-const statusEl=document.getElementById('status');
-function send(type,extra={}){try{if(window.opener&&!window.opener.closed)window.opener.postMessage({type,...extra},'*')}catch(e){}}
-function setStatus(msg,err=false){statusEl.textContent=msg;statusEl.className='status'+(err?' err':'')}
-async function startCamera(){
- if(active)return;
- setStatus('กำลังโหลดระบบอ่านบาร์โค้ด...');
- try { await window.__zxingReady; } catch(loadErr) { setStatus('โหลดระบบอ่านบาร์โค้ดไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต หรือเครือข่ายบล็อก CDN',true); send('MOBILE_SCANNER_ERROR',{message:loadErr.message||'โหลดไลบรารีอ่าน Barcode ไม่สำเร็จ'}); return; }
- if(!window.ZXingBrowser){setStatus('โหลดระบบอ่านบาร์โค้ดไม่สำเร็จ กรุณารีโหลดหน้าเว็บ',true);send('MOBILE_SCANNER_ERROR',{message:'ไม่พบ ZXingBrowser หลังโหลดไลบรารี'});return}
- if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){setStatus('Safari ไม่อนุญาตการใช้กล้องในหน้านี้ กรุณาเปิดผ่าน Safari โดยตรงและใช้ HTTPS',true);send('MOBILE_SCANNER_ERROR',{message:'เบราว์เซอร์ไม่รองรับการเข้าถึงกล้อง'});return}
- active=true;document.getElementById('start').disabled=true;setStatus('กำลังเปิดกล้อง...');
- try{
-  reader=new ZXingBrowser.BrowserMultiFormatReader();
-  controls=await reader.decodeFromVideoDevice(undefined,'video',(result,err)=>{
-   if(!active||!result)return;
-   const text=String(result.getText()||'').trim(),now=Date.now();
-   if(!text||(text===lastText&&now-lastAt<1800))return;
-   lastText=text;lastAt=now;document.getElementById('lastCode').textContent='ล่าสุด: '+text;setStatus('พบ Barcode และส่งกลับระบบหลักแล้ว');send('MOBILE_SCANNER_BARCODE',{text});
-  });
-  setStatus('กล้องทำงานแล้ว — สแกนต่อเนื่องได้เลย');send('MOBILE_SCANNER_READY');
- }catch(e){active=false;document.getElementById('start').disabled=false;const msg=e&&e.message?e.message:'ไม่สามารถเปิดกล้องได้';setStatus('เปิดกล้องไม่สำเร็จ: '+msg+' — ตรวจสอบ Settings > Safari > Camera และอนุญาตเว็บไซต์นี้',true);send('MOBILE_SCANNER_ERROR',{message:msg})}
+const API_URL = 'https://script.google.com/macros/s/AKfycbxsp721tFM0XkPAPjk6838GfgWYjVh3bQ27rHhjRubtKL0MCH40dfhTn5mUzNt80-D6Xg/exec';
+let reader = null, controls = null, active = false, lastText = '', lastAt = 0, requestPending = false;
+const statusEl = document.getElementById('status');
+const dateEl = document.getElementById('jobDate');
+const lastCodeEl = document.getElementById('lastCode');
+const detailsEl = document.getElementById('details');
+function localDateString() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
-function stopCamera(){active=false;try{if(controls&&controls.stop)controls.stop()}catch(e){}controls=null;try{if(reader&&reader.reset)reader.reset()}catch(e){}document.getElementById('start').disabled=false;setStatus('หยุดกล้องแล้ว');}
-document.getElementById('start').addEventListener('click',startCamera);document.getElementById('stop').addEventListener('click',stopCamera);
-window.addEventListener('message',e=>{if(e.data&&e.data.type==='MOBILE_SCANNER_STOP')stopCamera()});
-window.addEventListener('load',()=>send('MOBILE_SCANNER_READY'));
+dateEl.value = localDateString();
+
+function setStatus(msg, type='') {
+  statusEl.textContent = msg;
+  statusEl.className = 'status' + (type ? ' ' + type : '');
+}
+function send(type, extra={}) {
+  try { if (window.opener && !window.opener.closed) window.opener.postMessage({type,...extra}, '*'); } catch(e) {}
+}
+function callScannerApi(barcode) {
+  return new Promise((resolve, reject) => {
+    const callbackName = 'scannerCallback_' + Date.now() + '_' + Math.floor(Math.random()*100000);
+    const script = document.createElement('script');
+    let finished = false;
+    const cleanup = () => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      script.remove();
+      try { delete window[callbackName]; } catch(e) { window[callbackName] = undefined; }
+    };
+    const timer = setTimeout(() => { cleanup(); reject(new Error('หมดเวลารอคำตอบจาก Google Apps Script')); }, 20000);
+    window[callbackName] = result => { cleanup(); resolve(result); };
+    script.onerror = () => { cleanup(); reject(new Error('เชื่อมต่อ Google Apps Script ไม่สำเร็จ')); };
+    const url = new URL(API_URL);
+    url.searchParams.set('api', 'scan');
+    url.searchParams.set('barcode', barcode);
+    url.searchParams.set('jobDate', dateEl.value || localDateString());
+    url.searchParams.set('callback', callbackName);
+    url.searchParams.set('_', String(Date.now()));
+    script.src = url.toString();
+    document.head.appendChild(script);
+  });
+}
+async function processBarcode(text) {
+  const now = Date.now();
+  if (!text || requestPending || (text === lastText && now - lastAt < 2200)) return;
+  lastText = text;
+  lastAt = now;
+  requestPending = true;
+  lastCodeEl.textContent = 'Barcode: ' + text;
+  detailsEl.textContent = '';
+  setStatus('อ่านบาร์โค้ดได้แล้ว กำลังตรวจสอบและบันทึก...', '');
+  try {
+    const result = await callScannerApi(text);
+    if (!result || !result.status) throw new Error('ได้รับคำตอบจากระบบไม่ถูกต้อง');
+    const type = result.ok ? 'ok' : (result.status === 'DUPLICATE' || result.status === 'OVER_LIMIT' || result.status === 'BOX_NO_EXCEEDS' ? 'warn' : 'err');
+    setStatus(result.message || 'ได้รับผลจากระบบแล้ว', type);
+    detailsEl.textContent = [
+      result.trackingCode ? 'Tracking: ' + result.trackingCode : '',
+      result.hub ? 'HUB: ' + result.hub : '',
+      result.route ? 'Route: ' + result.route : '',
+      Number.isFinite(Number(result.scanned)) ? 'สแกนแล้ว: ' + result.scanned + (result.quantity != null ? ' / ' + result.quantity : '') : '',
+      result.remaining != null ? 'คงเหลือ: ' + result.remaining : ''
+    ].filter(Boolean).join('\n');
+    send('MOBILE_SCANNER_RESULT', result);
+  } catch (e) {
+    setStatus('ส่งข้อมูลไม่สำเร็จ: ' + (e.message || e), 'err');
+    send('MOBILE_SCANNER_ERROR', {message: e.message || String(e)});
+  } finally {
+    requestPending = false;
+  }
+}
+async function startCamera() {
+  if (active) return;
+  setStatus('กำลังโหลดระบบอ่านบาร์โค้ด...');
+  try { await window.__zxingReady; }
+  catch (e) { setStatus('โหลดระบบอ่านบาร์โค้ดไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', 'err'); return; }
+  if (!window.ZXingBrowser) { setStatus('ไม่พบระบบอ่านบาร์โค้ด กรุณารีโหลดหน้าเว็บ', 'err'); return; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    setStatus('เบราว์เซอร์ไม่รองรับกล้อง กรุณาเปิดผ่าน Safari หรือ Chrome ด้วย HTTPS', 'err'); return;
+  }
+  active = true;
+  document.getElementById('start').disabled = true;
+  dateEl.disabled = true;
+  setStatus('กำลังเปิดกล้อง...');
+  try {
+    reader = new ZXingBrowser.BrowserMultiFormatReader();
+    controls = await reader.decodeFromVideoDevice(undefined, 'video', (result, err) => {
+      if (!active || !result) return;
+      const text = String(result.getText() || '').trim();
+      if (text) processBarcode(text);
+    });
+    setStatus('กล้องทำงานแล้ว — วางบาร์โค้ดในกรอบเพื่อสแกน');
+    send('MOBILE_SCANNER_READY');
+  } catch (e) {
+    active = false;
+    document.getElementById('start').disabled = false;
+    dateEl.disabled = false;
+    setStatus('เปิดกล้องไม่สำเร็จ: ' + (e.message || 'ไม่สามารถเปิดกล้องได้'), 'err');
+    send('MOBILE_SCANNER_ERROR', {message:e.message || String(e)});
+  }
+}
+function stopCamera() {
+  active = false;
+  try { if (controls && controls.stop) controls.stop(); } catch(e) {}
+  controls = null;
+  try { if (reader && reader.reset) reader.reset(); } catch(e) {}
+  reader = null;
+  document.getElementById('start').disabled = false;
+  dateEl.disabled = false;
+  setStatus('หยุดกล้องแล้ว');
+}
+document.getElementById('start').addEventListener('click', startCamera);
+document.getElementById('stop').addEventListener('click', stopCamera);
+window.addEventListener('message', e => { if (e.data && e.data.type === 'MOBILE_SCANNER_STOP') stopCamera(); });
+window.addEventListener('pagehide', stopCamera);
+window.addEventListener('load', () => send('MOBILE_SCANNER_READY'));
 </script>
 </body>
 </html>
