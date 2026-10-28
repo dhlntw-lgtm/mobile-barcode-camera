@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="th">
 <head>
@@ -5,179 +6,495 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#101828">
 <title>Mobile Barcode Scanner</title>
+
 <script>
 window.__zxingReady = new Promise((resolve, reject) => {
   const urls = [
     'https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/zxing-browser.min.js',
-    'https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js'
+    'https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js',
+    'https://fastly.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/zxing-browser.min.js'
   ];
-  let i = 0;
+
+  let index = 0;
+  const errors = [];
+
   function loadNext() {
-    if (window.ZXingBrowser) return resolve(true);
-    if (i >= urls.length) return reject(new Error('โหลดไลบรารี ZXing จากทั้งสองแหล่งไม่สำเร็จ'));
+    if (window.ZXingBrowser &&
+        window.ZXingBrowser.BrowserMultiFormatReader) {
+      resolve(true);
+      return;
+    }
+
+    if (index >= urls.length) {
+      reject(new Error(
+        'โหลดระบบอ่านบาร์โค้ดไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต'
+      ));
+      return;
+    }
+
     const script = document.createElement('script');
-    script.src = urls[i++];
-    script.onload = () => window.ZXingBrowser ? resolve(true) : loadNext();
-    script.onerror = loadNext;
+    script.src = urls[index++];
+
+    script.onload = () => {
+      if (window.ZXingBrowser &&
+          window.ZXingBrowser.BrowserMultiFormatReader) {
+        resolve(true);
+      } else {
+        errors.push('ไม่พบ ZXingBrowser');
+        script.remove();
+        loadNext();
+      }
+    };
+
+    script.onerror = () => {
+      errors.push('โหลด CDN ไม่สำเร็จ');
+      script.remove();
+      loadNext();
+    };
+
     document.head.appendChild(script);
   }
+
   loadNext();
 });
 </script>
+
 <style>
-*{box-sizing:border-box}
-body{margin:0;background:#101828;color:#fff;font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;padding:14px;max-width:680px;margin-inline:auto}
-h1{font-size:22px;margin:4px 0 8px}
-.note{font-size:14px;color:#d0d5dd;line-height:1.5}
-.frame{margin-top:14px;background:#000;border-radius:16px;overflow:hidden;min-height:230px;position:relative}
-video{width:100%;display:block;max-height:55vh;object-fit:cover}
-.line{position:absolute;top:50%;left:8%;right:8%;height:2px;background:#ffcc00;box-shadow:0 0 10px #ffcc00;pointer-events:none}
-label{display:block;font-size:13px;color:#d0d5dd;margin:12px 0 6px}
-input[type=date]{width:100%;padding:12px;border:1px solid #475467;border-radius:10px;background:#1d2939;color:white;font-size:16px}
-.status{padding:12px;border-radius:10px;background:#344054;margin-top:12px;font-size:14px;line-height:1.5;overflow-wrap:anywhere}
-.status.ok{background:#05603a}.status.warn{background:#854a0e}.status.err{background:#912018}
-.code{font-size:20px;font-weight:800;overflow-wrap:anywhere;margin-top:10px}
-.details{font-size:14px;color:#d0d5dd;line-height:1.7;margin-top:6px;white-space:pre-line}
-button{width:100%;padding:14px;border:0;border-radius:12px;font-size:16px;font-weight:800;margin-top:12px;background:#ffcc00;color:#111827}
-button.secondary{background:#e4e7ec}
-button:disabled{opacity:.55}
-.small{font-size:12px;color:#98a2b3;margin-top:10px;line-height:1.5}
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 14px;
+  max-width: 680px;
+  margin-inline: auto;
+  background: #101828;
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+}
+
+h1 {
+  font-size: 22px;
+  margin: 4px 0 8px;
+}
+
+.note {
+  font-size: 14px;
+  color: #d0d5dd;
+  line-height: 1.5;
+}
+
+.frame {
+  margin-top: 14px;
+  background: #000;
+  border-radius: 16px;
+  overflow: hidden;
+  min-height: 230px;
+  position: relative;
+}
+
+video {
+  width: 100%;
+  display: block;
+  max-height: 55vh;
+  object-fit: cover;
+}
+
+.line {
+  position: absolute;
+  top: 50%;
+  left: 8%;
+  right: 8%;
+  height: 2px;
+  background: #ffcc00;
+  box-shadow: 0 0 10px #ffcc00;
+  pointer-events: none;
+}
+
+label {
+  display: block;
+  font-size: 13px;
+  color: #d0d5dd;
+  margin: 12px 0 6px;
+}
+
+input[type="date"] {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #475467;
+  border-radius: 10px;
+  background: #1d2939;
+  color: white;
+  font-size: 16px;
+}
+
+.status {
+  padding: 12px;
+  border-radius: 10px;
+  background: #344054;
+  margin-top: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.status.ok { background: #05603a; }
+.status.warn { background: #854a0e; }
+.status.err { background: #912018; }
+
+.code {
+  font-size: 20px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+  margin-top: 10px;
+}
+
+.details {
+  font-size: 14px;
+  color: #d0d5dd;
+  line-height: 1.7;
+  margin-top: 6px;
+  white-space: pre-line;
+}
+
+button {
+  width: 100%;
+  padding: 14px;
+  border: 0;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 800;
+  margin-top: 12px;
+  background: #ffcc00;
+  color: #111827;
+}
+
+button.secondary { background: #e4e7ec; }
+button:disabled { opacity: .55; }
+
+.small {
+  font-size: 12px;
+  color: #98a2b3;
+  margin-top: 10px;
+  line-height: 1.5;
+}
 </style>
 </head>
+
 <body>
 <h1>Mobile Barcode Scanner</h1>
-<div class="note">เลือกวันที่งาน แล้วกดเริ่มกล้อง วางบาร์โค้ดให้อยู่ในกรอบ ระบบจะอ่านและบันทึกผลไปยัง Google Sheets อัตโนมัติ</div>
+
+<div class="note">
+  เลือกวันที่งาน แล้วกดเริ่มกล้อง วางบาร์โค้ดให้อยู่ในกรอบ
+  ระบบจะอ่านและบันทึกผลไปยัง Google Sheets อัตโนมัติ
+</div>
 
 <label for="jobDate">วันที่งาน (Job Date)</label>
 <input id="jobDate" type="date">
 
-<div class="frame"><video id="video" muted playsinline autoplay></video><div class="line"></div></div>
-<div id="status" class="status">พร้อมเริ่มต้น — เลือกวันที่แล้วกด “เริ่มกล้อง”</div>
+<div class="frame">
+  <video id="video" muted playsinline autoplay></video>
+  <div class="line"></div>
+</div>
+
+<div id="status" class="status">
+  พร้อมเริ่มต้น — เลือกวันที่แล้วกด “เริ่มกล้อง”
+</div>
+
 <div id="lastCode" class="code"></div>
 <div id="details" class="details"></div>
+
 <button id="start" type="button">📷 เริ่มกล้องและสแกน</button>
 <button id="stop" type="button" class="secondary">หยุดกล้อง</button>
-<div class="small">หากขึ้นว่าไม่พบ Tracking ให้ตรวจสอบวันที่และข้อมูลที่นำเข้าใน RouteData ก่อน หากเป็นสแกนซ้ำ ระบบจะไม่บันทึกรายการซ้ำ</div>
+
+<div class="small">
+  หากไม่พบ Tracking ให้ตรวจสอบวันที่และข้อมูลใน RouteData
+  หากสแกนซ้ำ ระบบจะไม่บันทึกรายการซ้ำ
+</div>
 
 <script>
-const API_URL = 'https://script.google.com/macros/s/AKfycbxsp721tFM0XkPAPjk6838GfgWYjVh3bQ27rHhjRubtKL0MCH40dfhTn5mUzNt80-D6Xg/exec';
-let reader = null, controls = null, active = false, lastText = '', lastAt = 0, requestPending = false;
+const API_URL =
+  'https://script.google.com/macros/s/AKfycbxsp721tFM0XkPAPjk6838GfgWYjVh3bQ27rHhjRubtKL0MCH40dfhTn5mUzNt80-D6Xg/exec';
+
+let reader = null;
+let controls = null;
+let active = false;
+let lastText = '';
+let lastAt = 0;
+let requestPending = false;
+
 const statusEl = document.getElementById('status');
 const dateEl = document.getElementById('jobDate');
 const lastCodeEl = document.getElementById('lastCode');
 const detailsEl = document.getElementById('details');
+const startButton = document.getElementById('start');
+
 function localDateString() {
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return d.getFullYear() + '-' +
+    String(d.getMonth() + 1).padStart(2, '0') + '-' +
+    String(d.getDate()).padStart(2, '0');
 }
+
 dateEl.value = localDateString();
 
-function setStatus(msg, type='') {
-  statusEl.textContent = msg;
+function setStatus(message, type = '') {
+  statusEl.textContent = message;
   statusEl.className = 'status' + (type ? ' ' + type : '');
 }
-function send(type, extra={}) {
-  try { if (window.opener && !window.opener.closed) window.opener.postMessage({type,...extra}, '*'); } catch(e) {}
+
+function send(type, extra = {}) {
+  try {
+    if (window.opener && !window.opener.closed) {
+      window.opener.postMessage({ type, ...extra }, '*');
+    }
+  } catch (e) {}
 }
+
 function callScannerApi(barcode) {
   return new Promise((resolve, reject) => {
-    const callbackName = 'scannerCallback_' + Date.now() + '_' + Math.floor(Math.random()*100000);
+    const callbackName =
+      'scannerCallback_' + Date.now() + '_' +
+      Math.floor(Math.random() * 100000);
+
     const script = document.createElement('script');
     let finished = false;
-    const cleanup = () => {
+    let timer;
+
+    function cleanup() {
       if (finished) return;
       finished = true;
       clearTimeout(timer);
       script.remove();
-      try { delete window[callbackName]; } catch(e) { window[callbackName] = undefined; }
+
+      try {
+        delete window[callbackName];
+      } catch (e) {
+        window[callbackName] = undefined;
+      }
+    }
+
+    timer = setTimeout(() => {
+      cleanup();
+      reject(new Error(
+        'หมดเวลารอคำตอบจาก Google Apps Script'
+      ));
+    }, 20000);
+
+    window[callbackName] = result => {
+      cleanup();
+      resolve(result);
     };
-    const timer = setTimeout(() => { cleanup(); reject(new Error('หมดเวลารอคำตอบจาก Google Apps Script')); }, 20000);
-    window[callbackName] = result => { cleanup(); resolve(result); };
-    script.onerror = () => { cleanup(); reject(new Error('เชื่อมต่อ Google Apps Script ไม่สำเร็จ')); };
+
+    script.onerror = () => {
+      cleanup();
+      reject(new Error(
+        'เชื่อมต่อ Google Apps Script ไม่สำเร็จ'
+      ));
+    };
+
     const url = new URL(API_URL);
     url.searchParams.set('api', 'scan');
     url.searchParams.set('barcode', barcode);
-    url.searchParams.set('jobDate', dateEl.value || localDateString());
+    url.searchParams.set(
+      'jobDate',
+      dateEl.value || localDateString()
+    );
     url.searchParams.set('callback', callbackName);
     url.searchParams.set('_', String(Date.now()));
+
     script.src = url.toString();
     document.head.appendChild(script);
   });
 }
+
 async function processBarcode(text) {
   const now = Date.now();
-  if (!text || requestPending || (text === lastText && now - lastAt < 2200)) return;
+
+  if (!text || requestPending ||
+      (text === lastText && now - lastAt < 2200)) {
+    return;
+  }
+
   lastText = text;
   lastAt = now;
   requestPending = true;
+
   lastCodeEl.textContent = 'Barcode: ' + text;
   detailsEl.textContent = '';
-  setStatus('อ่านบาร์โค้ดได้แล้ว กำลังตรวจสอบและบันทึก...', '');
+
+  setStatus(
+    'อ่านบาร์โค้ดได้แล้ว กำลังตรวจสอบและบันทึก...'
+  );
+
   try {
     const result = await callScannerApi(text);
-    if (!result || !result.status) throw new Error('ได้รับคำตอบจากระบบไม่ถูกต้อง');
-    const type = result.ok ? 'ok' : (result.status === 'DUPLICATE' || result.status === 'OVER_LIMIT' || result.status === 'BOX_NO_EXCEEDS' ? 'warn' : 'err');
+
+    if (!result || !result.status) {
+      throw new Error('ได้รับคำตอบจากระบบไม่ถูกต้อง');
+    }
+
+    const type = result.ok
+      ? 'ok'
+      : (
+          ['DUPLICATE', 'OVER_LIMIT', 'BOX_NO_EXCEEDS']
+            .includes(result.status)
+            ? 'warn'
+            : 'err'
+        );
+
     setStatus(result.message || 'ได้รับผลจากระบบแล้ว', type);
+
     detailsEl.textContent = [
-      result.trackingCode ? 'Tracking: ' + result.trackingCode : '',
+      result.trackingCode
+        ? 'Tracking: ' + result.trackingCode : '',
       result.hub ? 'HUB: ' + result.hub : '',
       result.route ? 'Route: ' + result.route : '',
-      Number.isFinite(Number(result.scanned)) ? 'สแกนแล้ว: ' + result.scanned + (result.quantity != null ? ' / ' + result.quantity : '') : '',
-      result.remaining != null ? 'คงเหลือ: ' + result.remaining : ''
+      Number.isFinite(Number(result.scanned))
+        ? 'สแกนแล้ว: ' + result.scanned +
+          (result.quantity != null
+            ? ' / ' + result.quantity : '')
+        : '',
+      result.remaining != null
+        ? 'คงเหลือ: ' + result.remaining : ''
     ].filter(Boolean).join('\n');
+
     send('MOBILE_SCANNER_RESULT', result);
+
   } catch (e) {
-    setStatus('ส่งข้อมูลไม่สำเร็จ: ' + (e.message || e), 'err');
-    send('MOBILE_SCANNER_ERROR', {message: e.message || String(e)});
+    setStatus(
+      'ส่งข้อมูลไม่สำเร็จ: ' + (e.message || e),
+      'err'
+    );
+
+    send('MOBILE_SCANNER_ERROR', {
+      message: e.message || String(e)
+    });
+
   } finally {
     requestPending = false;
   }
 }
+
 async function startCamera() {
   if (active) return;
+
+  startButton.disabled = true;
   setStatus('กำลังโหลดระบบอ่านบาร์โค้ด...');
-  try { await window.__zxingReady; }
-  catch (e) { setStatus('โหลดระบบอ่านบาร์โค้ดไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', 'err'); return; }
-  if (!window.ZXingBrowser) { setStatus('ไม่พบระบบอ่านบาร์โค้ด กรุณารีโหลดหน้าเว็บ', 'err'); return; }
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    setStatus('เบราว์เซอร์ไม่รองรับกล้อง กรุณาเปิดผ่าน Safari หรือ Chrome ด้วย HTTPS', 'err'); return;
+
+  try {
+    await window.__zxingReady;
+  } catch (e) {
+    startButton.disabled = false;
+
+    setStatus(
+      'โหลดระบบอ่านบาร์โค้ดไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต หรือเครือข่ายที่บล็อก CDN',
+      'err'
+    );
+
+    send('MOBILE_SCANNER_ERROR', {
+      message: e.message || String(e)
+    });
+    return;
   }
-  active = true;
-  document.getElementById('start').disabled = true;
-  dateEl.disabled = true;
+
+  if (!window.ZXingBrowser ||
+      !window.ZXingBrowser.BrowserMultiFormatReader) {
+    startButton.disabled = false;
+    setStatus(
+      'ไม่พบระบบอ่านบาร์โค้ด กรุณารีโหลดหน้าเว็บ',
+      'err'
+    );
+    return;
+  }
+
+  if (!navigator.mediaDevices ||
+      !navigator.mediaDevices.getUserMedia) {
+    startButton.disabled = false;
+    setStatus(
+      'เบราว์เซอร์ไม่รองรับกล้อง กรุณาเปิดผ่าน Safari หรือ Chrome ด้วย HTTPS',
+      'err'
+    );
+    return;
+  }
+
   setStatus('กำลังเปิดกล้อง...');
+
   try {
     reader = new ZXingBrowser.BrowserMultiFormatReader();
-    controls = await reader.decodeFromVideoDevice(undefined, 'video', (result, err) => {
-      if (!active || !result) return;
-      const text = String(result.getText() || '').trim();
-      if (text) processBarcode(text);
-    });
-    setStatus('กล้องทำงานแล้ว — วางบาร์โค้ดในกรอบเพื่อสแกน');
+
+    controls = await reader.decodeFromVideoDevice(
+      undefined,
+      'video',
+      (result, err) => {
+        if (!active || !result) return;
+
+        const text = String(result.getText() || '').trim();
+        if (text) processBarcode(text);
+      }
+    );
+
+    active = true;
+    dateEl.disabled = true;
+
+    setStatus(
+      'กล้องทำงานแล้ว — วางบาร์โค้ดในกรอบเพื่อสแกน'
+    );
+
     send('MOBILE_SCANNER_READY');
+
   } catch (e) {
     active = false;
-    document.getElementById('start').disabled = false;
+    startButton.disabled = false;
     dateEl.disabled = false;
-    setStatus('เปิดกล้องไม่สำเร็จ: ' + (e.message || 'ไม่สามารถเปิดกล้องได้'), 'err');
-    send('MOBILE_SCANNER_ERROR', {message:e.message || String(e)});
+
+    setStatus(
+      'เปิดกล้องไม่สำเร็จ: ' +
+      (e.message || 'ไม่สามารถเปิดกล้องได้'),
+      'err'
+    );
+
+    send('MOBILE_SCANNER_ERROR', {
+      message: e.message || String(e)
+    });
   }
 }
+
 function stopCamera() {
   active = false;
-  try { if (controls && controls.stop) controls.stop(); } catch(e) {}
+
+  try {
+    if (controls && controls.stop) controls.stop();
+  } catch (e) {}
+
   controls = null;
-  try { if (reader && reader.reset) reader.reset(); } catch(e) {}
+
+  try {
+    if (reader && reader.reset) reader.reset();
+  } catch (e) {}
+
   reader = null;
-  document.getElementById('start').disabled = false;
+  startButton.disabled = false;
   dateEl.disabled = false;
+
   setStatus('หยุดกล้องแล้ว');
 }
-document.getElementById('start').addEventListener('click', startCamera);
-document.getElementById('stop').addEventListener('click', stopCamera);
-window.addEventListener('message', e => { if (e.data && e.data.type === 'MOBILE_SCANNER_STOP') stopCamera(); });
+
+startButton.addEventListener('click', startCamera);
+
+document.getElementById('stop')
+  .addEventListener('click', stopCamera);
+
+window.addEventListener('message', e => {
+  if (e.data && e.data.type === 'MOBILE_SCANNER_STOP') {
+    stopCamera();
+  }
+});
+
 window.addEventListener('pagehide', stopCamera);
-window.addEventListener('load', () => send('MOBILE_SCANNER_READY'));
+
+window.addEventListener('load', () => {
+  send('MOBILE_SCANNER_READY');
+});
 </script>
 </body>
 </html>
