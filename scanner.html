@@ -4,7 +4,26 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Mobile Barcode Camera</title>
-<script src="https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js"></script>
+<script>
+// Load ZXing from two CDNs in case one is blocked or unavailable.
+window.__zxingReady = new Promise((resolve, reject) => {
+  const urls = [
+    'https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/index.min.js',
+    'https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js'
+  ];
+  let i = 0;
+  function loadNext() {
+    if (window.ZXingBrowser) return resolve(true);
+    if (i >= urls.length) return reject(new Error('โหลดไลบรารี ZXing จากทั้งสองแหล่งไม่สำเร็จ'));
+    const script = document.createElement('script');
+    script.src = urls[i++];
+    script.onload = () => window.ZXingBrowser ? resolve(true) : loadNext();
+    script.onerror = loadNext;
+    document.head.appendChild(script);
+  }
+  loadNext();
+});
+</script>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#101828;color:#fff;font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;padding:14px}h1{font-size:21px;margin:4px 0 8px}.note{font-size:14px;color:#d0d5dd;line-height:1.5}.frame{margin-top:14px;background:#000;border-radius:16px;overflow:hidden;min-height:250px;position:relative}video{width:100%;display:block;max-height:65vh;object-fit:cover}.line{position:absolute;top:50%;left:8%;right:8%;height:2px;background:#ffcc00;box-shadow:0 0 10px #ffcc00;pointer-events:none}.status{padding:12px;border-radius:10px;background:#344054;margin-top:12px;font-size:14px;line-height:1.5}.status.err{background:#912018}button{width:100%;padding:14px;border:0;border-radius:12px;font-size:16px;font-weight:800;margin-top:12px;background:#ffcc00;color:#111827}.code{font-size:20px;font-weight:800;overflow-wrap:anywhere;margin-top:8px}
 </style>
@@ -24,7 +43,9 @@ function send(type,extra={}){try{if(window.opener&&!window.opener.closed)window.
 function setStatus(msg,err=false){statusEl.textContent=msg;statusEl.className='status'+(err?' err':'')}
 async function startCamera(){
  if(active)return;
- if(!window.ZXingBrowser){setStatus('โหลดระบบอ่านบาร์โค้ดไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต',true);send('MOBILE_SCANNER_ERROR',{message:'โหลดไลบรารีอ่าน Barcode ไม่สำเร็จ'});return}
+ setStatus('กำลังโหลดระบบอ่านบาร์โค้ด...');
+ try { await window.__zxingReady; } catch(loadErr) { setStatus('โหลดระบบอ่านบาร์โค้ดไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต หรือเครือข่ายบล็อก CDN',true); send('MOBILE_SCANNER_ERROR',{message:loadErr.message||'โหลดไลบรารีอ่าน Barcode ไม่สำเร็จ'}); return; }
+ if(!window.ZXingBrowser){setStatus('โหลดระบบอ่านบาร์โค้ดไม่สำเร็จ กรุณารีโหลดหน้าเว็บ',true);send('MOBILE_SCANNER_ERROR',{message:'ไม่พบ ZXingBrowser หลังโหลดไลบรารี'});return}
  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){setStatus('Safari ไม่อนุญาตการใช้กล้องในหน้านี้ กรุณาเปิดผ่าน Safari โดยตรงและใช้ HTTPS',true);send('MOBILE_SCANNER_ERROR',{message:'เบราว์เซอร์ไม่รองรับการเข้าถึงกล้อง'});return}
  active=true;document.getElementById('start').disabled=true;setStatus('กำลังเปิดกล้อง...');
  try{
