@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mobile Barcode Camera</title>
+<script src="https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#101828;color:#fff;font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;padding:14px}h1{font-size:21px;margin:4px 0 8px}.note{font-size:14px;color:#d0d5dd;line-height:1.5}.frame{margin-top:14px;background:#000;border-radius:16px;overflow:hidden;min-height:250px;position:relative}video{width:100%;display:block;max-height:65vh;object-fit:cover}.line{position:absolute;top:50%;left:8%;right:8%;height:2px;background:#ffcc00;box-shadow:0 0 10px #ffcc00;pointer-events:none}.status{padding:12px;border-radius:10px;background:#344054;margin-top:12px;font-size:14px;line-height:1.5}.status.err{background:#912018}button{width:100%;padding:14px;border:0;border-radius:12px;font-size:16px;font-weight:800;margin-top:12px;background:#ffcc00;color:#111827}.code{font-size:20px;font-weight:800;overflow-wrap:anywhere;margin-top:8px}
+</style>
+</head>
+<body>
+<h1>Barcode Scanner</h1>
+<div class="note">อนุญาตใช้กล้องเมื่อ Safari ถาม แล้ววางบาร์โค้ดให้อยู่ในกรอบ กล้องจะสแกนต่อเนื่องและส่งรหัสกลับไปยังหน้าระบบหลัก</div>
+<div class="frame"><video id="video" muted playsinline autoplay></video><div class="line"></div></div>
+<div id="status" class="status">กด “เริ่มกล้อง” เพื่อเริ่มสแกน</div>
+<div id="lastCode" class="code"></div>
+<button id="start" type="button">📷 เริ่มกล้อง</button>
+<button id="stop" type="button" style="background:#e4e7ec">หยุดกล้อง</button>
+<script>
+let reader=null,controls=null,active=false,lastText='',lastAt=0;
+const statusEl=document.getElementById('status');
+function send(type,extra={}){try{if(window.opener&&!window.opener.closed)window.opener.postMessage({type,...extra},'*')}catch(e){}}
+function setStatus(msg,err=false){statusEl.textContent=msg;statusEl.className='status'+(err?' err':'')}
+async function startCamera(){
+ if(active)return;
+ if(!window.ZXingBrowser){setStatus('โหลดระบบอ่านบาร์โค้ดไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต',true);send('MOBILE_SCANNER_ERROR',{message:'โหลดไลบรารีอ่าน Barcode ไม่สำเร็จ'});return}
+ if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){setStatus('Safari ไม่อนุญาตการใช้กล้องในหน้านี้ กรุณาเปิดผ่าน Safari โดยตรงและใช้ HTTPS',true);send('MOBILE_SCANNER_ERROR',{message:'เบราว์เซอร์ไม่รองรับการเข้าถึงกล้อง'});return}
+ active=true;document.getElementById('start').disabled=true;setStatus('กำลังเปิดกล้อง...');
+ try{
+  reader=new ZXingBrowser.BrowserMultiFormatReader();
+  controls=await reader.decodeFromVideoDevice(undefined,'video',(result,err)=>{
+   if(!active||!result)return;
+   const text=String(result.getText()||'').trim(),now=Date.now();
+   if(!text||(text===lastText&&now-lastAt<1800))return;
+   lastText=text;lastAt=now;document.getElementById('lastCode').textContent='ล่าสุด: '+text;setStatus('พบ Barcode และส่งกลับระบบหลักแล้ว');send('MOBILE_SCANNER_BARCODE',{text});
+  });
+  setStatus('กล้องทำงานแล้ว — สแกนต่อเนื่องได้เลย');send('MOBILE_SCANNER_READY');
+ }catch(e){active=false;document.getElementById('start').disabled=false;const msg=e&&e.message?e.message:'ไม่สามารถเปิดกล้องได้';setStatus('เปิดกล้องไม่สำเร็จ: '+msg+' — ตรวจสอบ Settings > Safari > Camera และอนุญาตเว็บไซต์นี้',true);send('MOBILE_SCANNER_ERROR',{message:msg})}
+}
+function stopCamera(){active=false;try{if(controls&&controls.stop)controls.stop()}catch(e){}controls=null;try{if(reader&&reader.reset)reader.reset()}catch(e){}document.getElementById('start').disabled=false;setStatus('หยุดกล้องแล้ว');}
+document.getElementById('start').addEventListener('click',startCamera);document.getElementById('stop').addEventListener('click',stopCamera);
+window.addEventListener('message',e=>{if(e.data&&e.data.type==='MOBILE_SCANNER_STOP')stopCamera()});
+window.addEventListener('load',()=>send('MOBILE_SCANNER_READY'));
+</script>
+</body>
+</html>
